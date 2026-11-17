@@ -29,6 +29,11 @@ typedef struct
     DLL *OPRD2_tail;
     DLL *RESULT_head;
     DLL *RESULT_tail;
+    int len_oprd1;
+    int len_oprd2;
+
 }APC_Info;
+
+
 
 #endif

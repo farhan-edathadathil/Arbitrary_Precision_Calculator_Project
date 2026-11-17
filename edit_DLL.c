@@ -9,12 +9,15 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
     {
         insert_last(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),(*oprd1_str));
         oprd1_str++;
+        apc_info->len_oprd1=strlen(oprd1_str);
         if(*oprd1_str=='\0')
         {
             display_error("In Operand 1 no integer found");
             exit(FAILURE);
         }
     }
+    else
+        apc_info->len_oprd1=strlen(oprd1_str);
     while(*oprd1_str)
     {
         if(*oprd1_str>='0' && *oprd1_str<='9')
@@ -25,6 +28,7 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
             exit(FAILURE);
         }
         oprd1_str++;
+
     }
 
     //operand 2 saving,validation in DLL
@@ -32,12 +36,15 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
     {
         insert_last(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail),(*oprd2_str));
         oprd2_str++;
+        apc_info->len_oprd2=strlen(oprd2_str);
         if(*oprd2_str=='\0')
         {
             display_error("In Operand 2 no integer found");
             exit(FAILURE);
         }
     }
+    else
+        apc_info->len_oprd2=strlen(oprd2_str);
     while(*oprd2_str)
     {
         if(*oprd2_str>='0' && *oprd2_str<='9')
@@ -49,10 +56,10 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
         }
         oprd2_str++;
     }
-    printf("OPERAND 1 : ");
+    printf("%-11s : ","[OPERAND 1]");
     print_list(apc_info->OPRD1_head);
     printf("\n");
-    printf("OPERAND 2 : ");
+    printf("%-11s : ","[OPERAND 2]");
     print_list(apc_info->OPRD2_head);
     printf("\n");
     return SUCCESS;
@@ -174,6 +181,17 @@ void print_list(DLL *head)
 
 void display_error(char *error)
 {
-    printf("\n%-9s : %s !!\n","[ERROR]",error);
-    printf("************** Programm Terminated **************\n\n");
+    printf("\n%-11s : %s !!\n","[ERROR]",error);
+    printf("\n************** Programm Terminated **************\n\n");
+}
+
+void display_result(APC_Info *apc_info,char ch)
+{
+    printf("\n%-11s : ","[OUTPUT]");
+    print_list(apc_info->OPRD1_head);
+    printf(" %c ",ch);
+    print_list(apc_info->OPRD2_head);
+    printf(" = ");
+    print_list(apc_info->RESULT_head);
+    printf("\n");
 }

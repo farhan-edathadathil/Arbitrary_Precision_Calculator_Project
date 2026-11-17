@@ -8,7 +8,7 @@ Status insert_last(DLL **head, DLL **tail, int data);
 Status delete_first(DLL **head, DLL **tail);
 Status delete_list(DLL **head, DLL **tail);
 void display_error(char *error);
-
+void display_result(APC_Info *apc_info,char ch);
 void print_list(DLL *head);
 
 

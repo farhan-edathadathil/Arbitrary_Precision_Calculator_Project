@@ -9,6 +9,7 @@ void cleanup(void)
     delete_list(&(apc_info.OPRD1_head),&(apc_info.OPRD1_tail));
     delete_list(&(apc_info.OPRD2_head),&(apc_info.OPRD2_tail));
     delete_list(&(apc_info.RESULT_head),&(apc_info.RESULT_tail));
+    printf("%-11s : Memory deallocation successfull\n\n","[CLEAN UP]");
 }
 
 int main(int argc,char **argv)
