@@ -6,14 +6,17 @@ APC_Info apc_info={NULL};
 
 void cleanup(void)
 {
+    if(apc_info.OPRD1_head==NULL)
+        return;
     delete_list(&(apc_info.OPRD1_head),&(apc_info.OPRD1_tail));
     delete_list(&(apc_info.OPRD2_head),&(apc_info.OPRD2_tail));
     delete_list(&(apc_info.RESULT_head),&(apc_info.RESULT_tail));
-    printf("%-11s : Memory deallocation successfull\n\n","[CLEAN UP]");
+    printf("\n%-11s : Memory deallocation successfull\n\n","[CLEAN UP]");
 }
 
 int main(int argc,char **argv)
 {
+    atexit(cleanup);
     if(argc!=4)
     {
         display_error("Not Enough arguments given");
@@ -28,6 +31,5 @@ int main(int argc,char **argv)
     save_oprd(&apc_info,argv[1],argv[3]);
     do_operation(&apc_info,argv[2]);
     
-    atexit(cleanup);
-    return SUCCESS;
+    return (SUCCESS);
 }
