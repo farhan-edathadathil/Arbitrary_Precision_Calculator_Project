@@ -324,6 +324,11 @@ Status multiplication(APC_Info *apc_info)
 {
     int data,carry=0,count=0,sign=1;
     APC_Info temp_mull={0};
+    if(((apc_info->OPRD2_head->data==0) && (apc_info->OPRD2_head->next==NULL)) || ((apc_info->OPRD1_head->data==0) && (apc_info->OPRD1_head->next==NULL)))
+    {
+        insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),0);
+        return SUCCESS;
+    }
     if((apc_info->OPRD1_head)->data!='-' && (apc_info->OPRD2_head)->data=='-')
         sign=-1;
     else if((apc_info->OPRD1_head)->data=='-' && (apc_info->OPRD2_head)->data!='-')
@@ -550,12 +555,12 @@ Status division(APC_Info *apc_info)
         }
         temp_rmd.len_oprd2=len;
 
-        // printf("- count\n");
+        //printf("- count\n");
         subtraction(&temp_rmd);
         /* checking selected mul is making a larger output */
         if(temp_rmd.RESULT_head->data=='-')
         {
-            mul=1;
+            mul--;
             delete_list(&(temp_info.OPRD2_head),&(temp_info.OPRD2_tail));
             delete_list(&(temp_rmd.OPRD2_head),&(temp_rmd.OPRD2_tail));
             delete_list(&(temp_rmd.RESULT_head),&(temp_rmd.RESULT_tail));
@@ -760,7 +765,7 @@ Status reminder(APC_Info *apc_info)
         subtraction(&temp_rmd);
         if(temp_rmd.RESULT_head->data=='-')
         {
-            mul=1;
+            mul--;
             delete_list(&(temp_info.OPRD2_head),&(temp_info.OPRD2_tail));
             delete_list(&(temp_rmd.OPRD2_head),&(temp_rmd.OPRD2_tail));
             delete_list(&(temp_rmd.RESULT_head),&(temp_rmd.RESULT_tail));
