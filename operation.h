@@ -10,5 +10,6 @@ Status multiplication(APC_Info *apc_info);
 Status division(APC_Info *apc_info);
 Status reminder(APC_Info *apc_info);
 int compare(APC_Info *apc_info);
+void display_help();
 
 #endif
