@@ -186,14 +186,15 @@ Status subtraction(APC_Info *apc_info)
             delete_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
             addition(apc_info);
             insert_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),'-');
-            insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_head),'-');
+            insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
         }
         else 
         {
             oprd1_temp=apc_info->OPRD1_head;
             oprd2_temp=apc_info->OPRD2_head;
             int cmp =compare(apc_info);
-            if(cmp == 0)
+            //printf("%d - cmd\n",cmp);
+            if((cmp == 0) && (apc_info->len_oprd2==apc_info->len_oprd1))
             {
                 insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),0);
                 return SUCCESS;
@@ -222,7 +223,6 @@ Status subtraction(APC_Info *apc_info)
                 if(((apc_info->OPRD1_head)->data=='-' && (apc_info->OPRD2_head)->data=='-') )
                     sign =-1;
             }
-
             oprd1_temp=apc_info->OPRD1_tail;
             oprd2_temp=apc_info->OPRD2_tail;
             while(oprd1_temp && oprd2_temp)
@@ -512,7 +512,7 @@ Status division(APC_Info *apc_info)
     delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
     insert_last(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),0);
 
-    int count =0,len,mul=1;
+    int len,mul=1;
 
     /* for comparing initialy the operands*/
     temp_rmd.OPRD2_head=temp_info.OPRD1_head;
@@ -718,7 +718,7 @@ Status reminder(APC_Info *apc_info)
     delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
     insert_last(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),0);
 
-    int count =0,len,mul=1;
+    int len,mul=1;
 
     /* for comparing initialy the operands*/
     temp_rmd.OPRD2_head=temp_info.OPRD1_head;
@@ -833,7 +833,7 @@ int compare(APC_Info *apc_info)
         }
         if(oprd2_temp->data == '-')
         {
-            oprd2_temp=oprd1_temp->next;
+            oprd2_temp=oprd2_temp->next;
             continue;
         }
         if(oprd1_temp->data != oprd2_temp->data)
