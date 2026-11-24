@@ -68,8 +68,7 @@ Status do_operation(APC_Info *apc_info,char *op)
             break;
 
         default :
-            display_error("Unsupported operator");
-            display_help();
+            display_error("Unsupported operator (use -h / --help for user manual) ");
             exit(FAILURE);
 
     }
@@ -709,8 +708,10 @@ Status division(APC_Info *apc_info)
     {
         apc_info->RESULT_head=apc_info->OPRD1_head;
         apc_info->RESULT_tail=apc_info->OPRD1_tail;
-        if(sign==-1)
-        insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+        if(sign==-1 && (apc_info->RESULT_head->data != 0))
+            insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+        
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -719,6 +720,9 @@ Status division(APC_Info *apc_info)
     }
     if((apc_info->OPRD2_head->data==0) && (apc_info->OPRD2_head->next==NULL))
     {
+        delete_list(&(backup.OPRD1_head),&(backup.OPRD1_tail));
+        delete_list(&(backup.OPRD2_head),&(backup.OPRD2_tail));
+
         display_error("Division by zero detected");
         exit(FAILURE);
     }
@@ -729,6 +733,10 @@ Status division(APC_Info *apc_info)
     if(cmp<0)
     {
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),0);
+
+        delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -740,6 +748,10 @@ Status division(APC_Info *apc_info)
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),1);
         if(sign ==-1)
             insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+
+        delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -747,8 +759,8 @@ Status division(APC_Info *apc_info)
         return SUCCESS;
     }
     
-    APC_Info temp_info={0};
-    APC_Info temp_rmd={0};
+    APC_Info temp_info={0}; //for copy of numerator in oprd1
+    APC_Info temp_rmd={0};  // for Copy of divisor in oprd1
     //APC_Info backup=*apc_info;
 
     temp=apc_info->OPRD1_head;
@@ -863,13 +875,26 @@ Status division(APC_Info *apc_info)
     }
     apc_info->RESULT_head=apc_info->OPRD1_head;
     apc_info->RESULT_tail=apc_info->OPRD1_tail;
-    if(sign==-1)
+    if(sign==-1 && (apc_info->RESULT_head->data != 0))
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+    /* memory cleanup */
+    delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+
     apc_info->OPRD1_head=backup.OPRD1_head;
     apc_info->OPRD1_tail=backup.OPRD1_tail;
     apc_info->OPRD2_head=backup.OPRD2_head;
     apc_info->OPRD2_tail=backup.OPRD2_tail;
     
+    /* Deallocating temporary remainder */
+    delete_list(&(temp_rmd.OPRD1_head),&(temp_rmd.OPRD1_tail));
+
+    /* temp_rmd.OPRD2 is a borrowed reference to temp_info.OPRD1.
+    Clear the borrowed reference without freeing it. */
+    temp_rmd.OPRD2_head = NULL;
+    temp_rmd.OPRD2_tail = NULL;
+
+    /* Deallocating the copied divisor */
+    delete_list(&(temp_info.OPRD1_head),&(temp_info.OPRD1_tail));
     return SUCCESS;
 }
 
@@ -878,118 +903,170 @@ Status reminder(APC_Info *apc_info)
     /*
     ============================================================================
     Function    : reminder
-    Description : Calculates the remainder of two signed arbitrary-precision
-                integers using partial quotient estimation, multiplication
-                and repeated subtraction.
+
+    Description :
+        Calculates the remainder of two signed arbitrary-precision integers
+        using partial quotient estimation, multiplication and subtraction.
 
     Logic       :
-        1. Creates deep-copy backup lists of both original operands using
+
+        1. Creates deep-copy backups of both original operands using
         insert_last().
-        Stores the corresponding operand lengths in the backup structure.
-        2. Determines the sign of the remainder based on the sign of operand 1.
-            - If both operands are positive, keeps the result positive.
-            - If operand 1 is positive and operand 2 is negative, removes
-                the negative sign from operand 2 and keeps the result positive.
-            - If operand 1 is negative and operand 2 is positive, sets the
-                result sign to negative and removes the negative sign from
-                operand 1.
-            - If both operands are negative, sets the result sign to
-                negative and removes both negative sign nodes.
-        3. Checks whether the divisor is exactly 1.
-            - Inserts zero directly into RESULT.
-            - Restores the original operand head and tail pointers
-                from the backup lists.
-            - Returns SUCCESS.
+        Stores their corresponding lengths in the backup structure.
+
+        2. Determines the sign of the remainder based on the sign of the
+        dividend (operand 1).
+                - If both operands are positive, the remainder is positive.
+                - If the dividend is positive and divisor is negative,
+                the remainder remains positive.
+                - If the dividend is negative, the remainder is negative,
+                irrespective of the divisor's sign.
+        Removes the negative sign nodes from the working operands to
+        perform arithmetic using their absolute magnitudes.
+
+        3. Checks whether the absolute divisor is exactly 1.
+                - Inserts zero directly into RESULT.
+                - Deletes both working operand lists.
+                - Restores the original operands from the backup copies.
+                - Returns SUCCESS.
+
         4. Checks whether the divisor is zero.
-            - Displays a division-by-zero error message.
-            - Terminates the program with FAILURE.
-        5. Compares the absolute magnitudes of both operands using compare().
+                - Deletes both backup lists.
+                - Displays a division-by-zero error message.
+                - Terminates the program with FAILURE.
 
-            - If the numerator is smaller than the divisor:
-                    - Transfers the numerator linked list directly into RESULT.
-                    - Inserts the negative sign if the dividend is negative.
-                    - Restores the original operand head and tail pointers.
-                    - Returns SUCCESS.
+        5. Compares the absolute magnitudes of the operands using compare().
 
-            - If both operands are equal:
-                    - Inserts zero into RESULT.
-                    - Restores the original operand head and tail pointers.
-                    - Returns SUCCESS.
+                - If the dividend is smaller than the divisor:
+                        - Transfers the dividend list directly into RESULT.
+                        - Inserts the negative sign if the dividend is negative
+                        and the result is non-zero.
+                        - Deletes the working divisor list.
+                        - Restores both original operands from the backups.
+                        - Returns SUCCESS.
+
+                - If both operands are equal:
+                        - Inserts zero directly into RESULT.
+                        - Deletes both working operand lists.
+                        - Restores both original operands from the backups.
+                        - Returns SUCCESS.
+
         6. Initializes two temporary APC_Info structures:
-            - temp_rmd  : Maintains the current remainder.
-            - temp_info : Maintains the divisor and partial quotient.
-        7. Copies the absolute numerator into temp_rmd.OPRD1.
-        8. Copies the absolute divisor into temp_info.OPRD1.
-        9. Deletes the working operand lists from apc_info and initializes
-        apc_info.OPRD1 with a single zero node to maintain the partial
-        quotient accumulator.
 
-    10. Assigns the divisor linked list to temp_rmd.OPRD2 and initializes
-        len_oprd2 for the initial remainder-versus-divisor comparison.
-    11. Repeats the remainder calculation while the current remainder
+                - temp_rmd  : Maintains the current remainder.
+                - temp_info : Maintains the absolute divisor and the temporary
+                            partial quotient used during each iteration.
+
+        7. Creates deep copies of the absolute dividend and divisor:
+                - Copies the dividend into temp_rmd.OPRD1.
+                - Copies the divisor into temp_info.OPRD1.
+        Stores their respective lengths.
+
+        8. Assigns the divisor list (temp_info.OPRD1) to
+        temp_rmd.OPRD2 for the initial remainder-versus-divisor
+        comparison.
+        This is a borrowed reference, not a separate allocation.
+
+        9. Repeats the remainder calculation while the current remainder
         is greater than or equal to the divisor.
 
-        a) Clears the previous temp_rmd.OPRD2 references and initializes
-            the multiplier to 1.
-        b) Estimates the partial quotient multiplier:
-                - Compares the first digit of the current remainder with
-                    the first digit of the divisor.
-                - If the remainder's first digit is smaller, combines the
-                    first two remainder digits and divides the combined
-                    value by the first divisor digit.
-                - Otherwise, retains the multiplier as 1.
-        c) At the retry label, inserts the estimated multiplier into
-            temp_info.OPRD2.
-        d) Calculates the number of trailing zeros using:
-                Current remainder length - Divisor length - 1
-        e) Inserts the calculated number of zero nodes after the
-            multiplier to represent its decimal position.
-        f) Calls multiplication() to multiply the divisor by the
-            estimated partial quotient.
-        g) Transfers the multiplication result into temp_rmd.OPRD2
-            and calculates its actual node count to update len_oprd2.
-        h) Calls subtraction() to subtract the multiplication result
-            from the current remainder.
-        i) Checks whether the subtraction result begins with '-'.
-                - If negative, the estimated multiplier is too large.
-                - Decrements the multiplier by one.
-                - Deletes the invalid partial quotient, multiplication
-                    result and subtraction result.
-                - Uses goto retry to repeat multiplication and subtraction
-                    with the reduced multiplier.
-        j) If subtraction produces a non-negative result:
-                - Calculates the new remainder length by traversing
-                    the subtraction result.
-                - Deletes the previous remainder linked list.
-                - Transfers the subtraction result into temp_rmd.OPRD1.
-                - Clears the temporary RESULT pointers.
-                - Deletes the temporary multiplication result.
-        k) Assigns the accepted partial quotient to apc_info.OPRD2.
-        l) Calls addition() to accumulate the accepted partial quotient
-            in apc_info.OPRD1.
-        m) Deletes the previous quotient accumulator and transfers
-            the addition result back into apc_info.OPRD1.
-        n) Deletes the temporary partial quotient list and clears
-            the corresponding operand pointers.
-        o) Restores the divisor reference in temp_rmd.OPRD2 for
-            the next remainder comparison.
-    12. Repeats the process until the current remainder becomes
-        smaller than the divisor.
-    13. Transfers the final remainder linked list from temp_rmd.OPRD1
-        into apc_info.RESULT.
-    14. Inserts '-' at the beginning of RESULT if the dividend
-        was negative.
-    15. Restores the original operand head and tail pointers from
-        the backup lists.
-    16. Returns SUCCESS.
+        a) Clears the previous temp_rmd.OPRD2 reference before
+            reusing it for the multiplication result.
+            The original divisor list is retained in temp_info.OPRD1.
 
-    Benefit     : Calculates the remainder of large signed integers using
-                linked-list multiplication and subtraction without
-                converting complete operands into built-in integer types.
+        b) Initializes the partial quotient multiplier to 1.
+
+        c) Estimates the partial quotient multiplier:
+                    - Compares the leading digit of the current remainder
+                    with the leading digit of the divisor.
+                    - If the remainder's leading digit is smaller,
+                    combines its first two digits and divides the
+                    combined value by the divisor's leading digit.
+                    - Otherwise, retains the multiplier as 1.
+
+        d) At the retry label, inserts the estimated multiplier into
+            temp_info.OPRD2.
+
+        e) Calculates the number of trailing zeros using:
+
+                    Current remainder length - Divisor length - 1
+
+            Inserts the calculated zero nodes after the multiplier
+            to represent its decimal position.
+
+        f) Calls multiplication() to multiply the divisor
+            (temp_info.OPRD1) by the estimated partial quotient
+            (temp_info.OPRD2).
+
+        g) Transfers the multiplication result into
+            temp_rmd.OPRD2 and clears the temporary RESULT pointers
+            in temp_info.
+
+        h) Counts the multiplication result nodes to update len_oprd2.
+
+        i) Calls subtraction() to calculate:
+
+                    Current remainder - Multiplication result
+
+        j) Checks whether the subtraction result begins with '-'.
+
+                    - If negative, the estimated multiplier is too large.
+                    - Decrements the multiplier.
+                    - Deletes the partial quotient, multiplication result
+                    and invalid subtraction result.
+                    - Uses goto retry to repeat the calculation with
+                    the reduced multiplier.
+
+        k) If subtraction produces a non-negative result:
+                    - Counts the nodes in the new remainder.
+                    - Deletes the previous remainder list.
+                    - Transfers the subtraction result into
+                    temp_rmd.OPRD1.
+                    - Clears the temporary RESULT pointers.
+                    - Deletes the multiplication result list.
+                    - Deletes the accepted partial quotient list.
+                    - Restores the divisor reference in temp_rmd.OPRD2
+                    for the next comparison.
+
+        10. Continues the loop until the current remainder becomes
+            smaller than the divisor.
+
+        11. Transfers the final remainder list from temp_rmd.OPRD1
+            into apc_info.RESULT.
+
+        12. Clears the transferred temp_rmd.OPRD1 pointers to avoid
+            retaining ownership of the transferred result.
+
+        13. Inserts the negative sign at the beginning of RESULT only
+            when the original dividend was negative and the remainder
+            is non-zero.
+            This prevents negative-zero results.
+
+        14. Deletes the original working operand lists from apc_info.
+
+        15. Restores both original operands from the deep-copy backup lists.
+
+        16. Clears the borrowed divisor reference in temp_rmd.OPRD2
+            without deleting the divisor through that borrowed reference.
+
+        17. Deletes the temporary divisor copy stored in temp_info.OPRD1.
+
+        18. Returns SUCCESS.
+
+    Benefit     :
+        Calculates the remainder of signed arbitrary-precision integers
+        without converting complete operands into built-in integer types.
+
+        Uses partial quotient estimation to reduce repeated subtraction
+        operations and linked-list multiplication to calculate intermediate
+        products.
+
+        Avoids unnecessary quotient accumulation, reducing temporary
+        operations and memory management overhead.
 
     Parameters  :
-        apc_info - Structure containing both operands and receiving
-                the calculated remainder.
+        apc_info - Structure containing both input operands and receiving
+                the calculated remainder in RESULT.
 
     Return      : Status
         SUCCESS - Remainder calculation completed successfully.
@@ -997,6 +1074,7 @@ Status reminder(APC_Info *apc_info)
 
     ============================================================================
     */
+
     int sign=1;
     /* taking a backup of real operands */
     APC_Info backup={0};
@@ -1036,7 +1114,10 @@ Status reminder(APC_Info *apc_info)
     if((apc_info->OPRD2_head->data==1) && (apc_info->OPRD2_head->next==NULL))
     {
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),0);
-    
+        /* Releasing working operand lists */
+        delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -1045,6 +1126,9 @@ Status reminder(APC_Info *apc_info)
     }
     if((apc_info->OPRD2_head->data==0) && (apc_info->OPRD2_head->next==NULL))
     {
+        delete_list(&(backup.OPRD1_head),&(backup.OPRD1_tail));
+        delete_list(&(backup.OPRD2_head),&(backup.OPRD2_tail));
+
         display_error("Division by zero detected");
         exit(FAILURE);
     }
@@ -1056,8 +1140,9 @@ Status reminder(APC_Info *apc_info)
     {
         apc_info->RESULT_head=apc_info->OPRD1_head;
         apc_info->RESULT_tail=apc_info->OPRD1_tail;
-        if(sign==-1)
+        if(sign==-1 && (apc_info->RESULT_head->data != 0))
             insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -1068,6 +1153,8 @@ Status reminder(APC_Info *apc_info)
     {
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),0);
         
+        delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+        delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
         apc_info->OPRD1_head=backup.OPRD1_head;
         apc_info->OPRD1_tail=backup.OPRD1_tail;
         apc_info->OPRD2_head=backup.OPRD2_head;
@@ -1093,10 +1180,6 @@ Status reminder(APC_Info *apc_info)
         temp=temp->next;
     }
     temp_info.len_oprd1=apc_info->len_oprd2;
-
-    delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
-    delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
-    insert_last(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),0);
 
     int len,mul=1;
 
@@ -1169,18 +1252,7 @@ Status reminder(APC_Info *apc_info)
         temp_rmd.RESULT_head=NULL;
         temp_rmd.RESULT_tail=NULL;
         delete_list(&(temp_rmd.OPRD2_head),&(temp_rmd.OPRD2_tail));
-
-        apc_info->OPRD2_head=temp_info.OPRD2_head;
-        apc_info->OPRD2_tail=temp_info.OPRD2_tail;
-        addition(apc_info);
-        delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
-        apc_info->OPRD1_head=apc_info->RESULT_head;
-        apc_info->OPRD1_tail=apc_info->RESULT_tail;
-        apc_info->RESULT_head=NULL;
-        apc_info->RESULT_tail=NULL;
         delete_list(&(temp_info.OPRD2_head),&(temp_info.OPRD2_tail));
-        apc_info->OPRD2_head=NULL;
-        apc_info->OPRD2_tail=NULL;
 
         temp_rmd.OPRD2_head=temp_info.OPRD1_head;
         temp_rmd.OPRD2_tail=temp_info.OPRD1_tail;
@@ -1189,13 +1261,23 @@ Status reminder(APC_Info *apc_info)
     }
     apc_info->RESULT_head=temp_rmd.OPRD1_head;
     apc_info->RESULT_tail=temp_rmd.OPRD1_tail;
-    if(sign==-1)
+
+    temp_rmd.OPRD1_head = NULL;
+    temp_rmd.OPRD1_tail = NULL;
+    if(sign==-1 && apc_info->RESULT_head->data != 0)
         insert_first(&(apc_info->RESULT_head),&(apc_info->RESULT_tail),'-');
+
+    delete_list(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+    delete_list(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+
     apc_info->OPRD1_head=backup.OPRD1_head;
     apc_info->OPRD1_tail=backup.OPRD1_tail;
     apc_info->OPRD2_head=backup.OPRD2_head;
     apc_info->OPRD2_tail=backup.OPRD2_tail;
-    
+
+    temp_rmd.OPRD2_head = NULL;
+    temp_rmd.OPRD2_tail = NULL;
+     delete_list(&(temp_info.OPRD1_head),&(temp_info.OPRD1_tail));
     return SUCCESS;
 }
 

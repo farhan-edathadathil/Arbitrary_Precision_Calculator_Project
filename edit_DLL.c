@@ -6,46 +6,134 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
     /*
     ============================================================================
     Function    : save_oprd
-    Description : Validates the two command-line operand strings and stores
-                their signs and decimal digits in the corresponding doubly
-                linked lists.
+
+    Description :
+        Validates, converts and stores two signed integer strings into
+        their respective doubly linked lists.
+
+        The function also normalizes both operands by removing leading
+        zeros and ensuring that zero is represented by a single zero
+        node without a negative sign.
 
     Logic       :
-        1. Checks the first character of operand 1.
-        2. If operand 1 begins with '-', inserts '-' as the first list node,
-        advances the input string pointer, and stores the remaining string
-        length in len_oprd1.
-        3. If operand 1 begins with '+', advances the input string pointer
-        without storing a plus-sign node and stores the remaining digit
-        count in len_oprd1.
-        4. If no sign is present, stores the complete string length.
-        5. Checks that a sign is not the only character. If no digit follows,
-        displays an error and exits with FAILURE.
-        6. Traverses operand 1 character by character. Each decimal character
-        is converted from its character code to its numeric digit and
-        appended using insert_last(). Any non-digit character causes an
-        error and exit(FAILURE).
-        7. Repeats the same parsing and validation process for operand 2.
-        8. Prints both stored operands using print_list().
-        9. Returns SUCCESS.
 
-    Benefit     : Converts command-line integer strings into the linked-list
-                representation used by all arithmetic functions and rejects
-                non-integer input before calculation.
+        1. Checks whether operand 1 and operand 2 are empty strings.
+        If either operand is empty, displays an appropriate error
+        message and terminates the program with FAILURE.
+
+        2. Processes operand 1:
+
+        a) Checks the first character of the operand.
+
+                - If it is '-', temporarily inserts the negative sign
+                as the first node, advances the input pointer and
+                calculates the remaining digit count.
+
+                - If it is '+', skips the positive sign and calculates
+                the remaining digit count without storing the sign.
+
+                - If no sign is present, calculates the complete
+                string length.
+
+        b) Checks whether at least one digit follows the optional sign.
+            If no digit is present, displays an error and terminates
+            the program with FAILURE.
+
+        c) Traverses the remaining operand string character by character.
+
+                - Validates that each character is a decimal digit
+                between '0' and '9'.
+
+                - Converts each valid character into its corresponding
+                numeric digit by subtracting '0'.
+
+                - Appends the numeric digit to OPRD1 using insert_last().
+
+                - If an invalid character is encountered, displays an
+                error and terminates the program with FAILURE.
+
+        3. Normalizes operand 1 by removing unnecessary leading nodes:
+
+        a) Traverses the linked list from the beginning.
+
+        b) If the first node contains '-', records the negative sign
+            in the sign variable and removes the sign node using
+            delete_first().
+
+        c) Removes consecutive leading zero nodes using delete_first()
+            and decrements len_oprd1 for every removed zero.
+
+        d) After removing leading zeros:
+
+                - If the list still contains digits and the original
+                operand was negative, inserts '-' again at the beginning.
+
+                - If the list becomes empty, the operand represents zero.
+                Inserts a single zero node and sets len_oprd1 to 1.
+                This also eliminates negative zero.
+
+        4. Resets the sign variable and repeats the same validation,
+        conversion and normalization process for operand 2.
+
+        - Stores the numeric digits in OPRD2.
+        - Maintains its sign independently.
+        - Removes leading zeros and updates len_oprd2.
+        - Represents an all-zero operand using a single zero node.
+
+        5. Displays both normalized operands using print_list().
+
+        6. Returns SUCCESS after both operands have been successfully
+        validated, converted and stored.
+
+    Benefit     :
+        Converts signed decimal strings into the doubly linked list
+        representation required by the arbitrary-precision arithmetic
+        operations.
+
+        Rejects invalid and empty input before arithmetic processing.
+
+        Removes unnecessary leading zeros to maintain canonical operand
+        representations and ensure that operand lengths correctly reflect
+        the number of significant decimal digits.
+
+        Normalizes positive zero and negative zero into a single zero node,
+        simplifying sign handling and magnitude comparisons in arithmetic
+        operations.
 
     Parameters  :
-        apc_info  - Structure receiving the two operand lists and their lengths.
-        oprd1_str - Command-line string for operand 1.
-        oprd2_str - Command-line string for operand 2.
+        apc_info  - Structure receiving the two operand linked lists
+                    and their corresponding digit counts.
+
+        oprd1_str - Command-line string containing the first signed operand.
+
+        oprd2_str - Command-line string containing the second signed operand.
 
     Return      : Status
-        SUCCESS - Both strings were processed and stored.
-        FAILURE - Not returned for invalid characters or a sign without digits;
-                those cases call exit(FAILURE).
+
+        SUCCESS - Both operands are successfully validated, converted,
+                normalized and stored in their respective linked lists.
+
+        FAILURE - Invalid characters, empty operands or a sign without
+                following digits cause an error message and terminate
+                the program using exit(FAILURE).
+
     ============================================================================
     */
+
     //operand 2 saving,cheking in DLL
 
+    int sign=1;
+    if(*oprd1_str == '\0')
+    {
+        display_error("Operand 1 is empty");
+        exit(FAILURE);
+    }
+
+    if(*oprd2_str == '\0')
+    {
+        display_error("Operand 2 is empty");
+        exit(FAILURE);
+    }
     if(*oprd1_str=='-')
     {
         insert_last(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),(*oprd1_str));
@@ -81,8 +169,38 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
         oprd1_str++;
 
     }
+    DLL *temp=apc_info->OPRD1_head;
+    while(temp)
+    {
+        if(temp->data == '-')
+        {
+            sign=-1;
+            temp=temp->next;
+            delete_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+            continue;
+        }
+        if(temp->data == 0)
+        {
+            temp=temp->next;
+            delete_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail));
+            apc_info->len_oprd1--;
+            continue;
+        }
+        break;
+    }
+    if(sign==-1 && apc_info->OPRD1_head!=NULL)
+    {
+        insert_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),'-');
+        sign =1;
+    }
+    else if(apc_info->OPRD1_head==NULL)
+    {
+        insert_first(&(apc_info->OPRD1_head),&(apc_info->OPRD1_tail),0);
+        apc_info->len_oprd1=1;
+    }
 
     //operand 2 saving,validation in DLL
+    sign=1;
     if(*oprd2_str=='-')
     {
         insert_last(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail),(*oprd2_str));
@@ -116,6 +234,35 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
             exit(FAILURE);
         }
         oprd2_str++;
+    }
+    temp=apc_info->OPRD2_head;
+    while(temp)
+    {
+        if(temp->data == '-')
+        {
+            sign=-1;
+            temp=temp->next;
+            delete_first(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+            continue;
+        }
+        if(temp->data == 0)
+        {
+            temp=temp->next;
+            delete_first(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail));
+            apc_info->len_oprd2--;
+            continue;
+        }
+        break;
+    }
+    if(sign==-1 && apc_info->OPRD2_head!=NULL)
+    {
+        insert_first(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail),'-');
+        sign =1;
+    }
+    else if(apc_info->OPRD2_head==NULL)
+    {
+        insert_first(&(apc_info->OPRD2_head),&(apc_info->OPRD2_tail),0);
+        apc_info->len_oprd2=1;
     }
     printf("%-11s : ","[OPERAND 1]");
     print_list(apc_info->OPRD1_head);

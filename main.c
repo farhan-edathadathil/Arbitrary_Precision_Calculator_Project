@@ -1,4 +1,9 @@
 /*
+
+NAME : FARHAN E
+ID : 26018_199
+DATE : 23/11/2016
+
 ============================================================================
 Project Name : ARBITRARY PRECISION CALCULATOR (APC)
 
@@ -51,8 +56,7 @@ Working Logic :
            - Division       : Uses partial quotient estimation,
                               multiplication, subtraction and quotient
                               accumulation.
-           - Remainder      : Uses the division-based repeated
-                              subtraction approach.
+           - Remainder      : Uses the division same approach.
 
     7. Stores the calculated result in the result linked list.
 
@@ -83,7 +87,7 @@ Output :
     [OUTPUT]    : 1234 + 123 = 1357
 
     [CLEAN UP]  : Memory deallocation successfull
-    
+
     $ ./a.out 19999 / 2345
     [OPERAND 1] : 19999
     [OPERAND 2] : 2345
@@ -155,12 +159,12 @@ int main(int argc,char **argv)
     atexit(cleanup);
     if(argc!=4)
     {
-        display_error("Not Enough arguments given");
+        display_error("Not Enough arguments given (use -h / --help for user manual)");
         exit(FAILURE);
     }
     if(strlen(argv[2])>1)
     {
-        display_error("Unsupported operator");
+        display_error("Unsupported operator (use -h / --help for user manual)");
         exit(FAILURE);
     }
     save_oprd(&apc_info,argv[1],argv[3]);
