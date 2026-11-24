@@ -56,7 +56,7 @@ Working Logic :
            - Division       : Uses partial quotient estimation,
                               multiplication, subtraction and quotient
                               accumulation.
-           - Remainder      : Uses the division same approach.
+           - Remainder      : Uses the division same approach without accumulation.
 
     7. Stores the calculated result in the result linked list.
 
