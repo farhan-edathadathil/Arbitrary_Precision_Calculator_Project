@@ -218,7 +218,7 @@ Status save_oprd(APC_Info *apc_info,char *oprd1_str,char *oprd2_str)
         apc_info->len_oprd2=strlen(oprd2_str);
         if(*oprd2_str=='\0')
         {
-            display_error("In Operand 1 no integer found");
+            display_error("In Operand 2 no integer found");
             exit(FAILURE);
         }
     }
